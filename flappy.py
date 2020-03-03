@@ -1,14 +1,15 @@
 from itertools import cycle
 import random
 import sys
+import os
 
 import pygame
 from pygame.locals import *
 
 
 FPS = 30
-SCREENWIDTH  = 288
-SCREENHEIGHT = 512
+SCREENWIDTH  = 480
+SCREENHEIGHT = 320
 PIPEGAPSIZE  = 100 # gap between upper and lower part of pipe
 BASEY        = SCREENHEIGHT * 0.79
 # image, sound and hitmask  dicts
@@ -55,12 +56,35 @@ except NameError:
     xrange = range
 
 
+import RPi.GPIO as GPIO
+GPIO.setmode(GPIO.BCM) 
+GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(6, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(13, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+
+def flap_bird(channel=0):
+    ev = pygame.event.Event (pygame.USEREVENT)
+    pygame.event.post(ev)
+
+def do_quit(channel=0):
+    pygame.quit()
+    sys.exit()
+
+GPIO.add_event_detect(5, GPIO.FALLING, callback=flap_bird, bouncetime=175)
+GPIO.add_event_detect(6, GPIO.FALLING, callback=flap_bird, bouncetime=175)
+GPIO.add_event_detect(13, GPIO.FALLING, callback=do_quit, bouncetime=175)
+
+
 def main():
     global SCREEN, FPSCLOCK
+    os.putenv('SDL_FBDEV', '/dev/fb1')
+    os.environ["SDL_FBDEV"] = "/dev/fb1"
     pygame.init()
     FPSCLOCK = pygame.time.Clock()
     SCREEN = pygame.display.set_mode((SCREENWIDTH, SCREENHEIGHT))
     pygame.display.set_caption('Flappy Bird')
+    pygame.mouse.set_cursor((8,8),(0,0),(0,0,0,0,0,0,0,0),(0,0,0,0,0,0,0,0))
 
     # numbers sprites for score display
     IMAGES['numbers'] = (
@@ -157,10 +181,10 @@ def showWelcomeAnimation():
 
     while True:
         for event in pygame.event.get():
+            print(event.type)
             if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
-                pygame.quit()
-                sys.exit()
-            if event.type == KEYDOWN and (event.key == K_SPACE or event.key == K_UP):
+                do_quit()
+            if (event.type == pygame.USEREVENT or event.type == MOUSEBUTTONDOWN or (event.type == KEYDOWN and (event.key == K_SPACE or event.key == K_UP))):
                 # make first flap sound and return values for mainGame
                 SOUNDS['wing'].play()
                 return {
@@ -228,9 +252,8 @@ def mainGame(movementInfo):
     while True:
         for event in pygame.event.get():
             if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
-                pygame.quit()
-                sys.exit()
-            if event.type == KEYDOWN and (event.key == K_SPACE or event.key == K_UP):
+                do_quit()
+            if (event.type == pygame.USEREVENT or event.type == MOUSEBUTTONDOWN or (event.type == KEYDOWN and (event.key == K_SPACE or event.key == K_UP))):
                 if playery > -2 * IMAGES['player'][0].get_height():
                     playerVelY = playerFlapAcc
                     playerFlapped = True
@@ -343,9 +366,8 @@ def showGameOverScreen(crashInfo):
     while True:
         for event in pygame.event.get():
             if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
-                pygame.quit()
-                sys.exit()
-            if event.type == KEYDOWN and (event.key == K_SPACE or event.key == K_UP):
+                do_quit()
+            if (event.type == pygame.USEREVENT or event.type == MOUSEBUTTONDOWN or (event.type == KEYDOWN and (event.key == K_SPACE or event.key == K_UP))):
                 if playery + playerHeight >= BASEY - 1:
                     return
 
